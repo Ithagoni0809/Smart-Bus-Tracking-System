@@ -1,0 +1,49 @@
+# render.yaml
+# Render Blueprint — defines the backend service for one-click deployment.
+# Docs: https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    name: smart-bus-tracking-api
+    runtime: node
+    rootDir: bus-tracking-backend
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /health
+    autoDeploy: true
+
+    # Environment variables — set values in Render dashboard
+    # Never put actual secrets here; this file is committed to Git
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: MONGODB_URI
+        sync: false          # Set manually in Render dashboard
+      - key: JWT_ACCESS_SECRET
+        generateValue: true  # Render auto-generates a random secret
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: JWT_ACCESS_EXPIRE
+        value: 24h
+      - key: JWT_REFRESH_EXPIRE
+        value: 30d
+      - key: CLIENT_URL
+        sync: false          # Set to your Vercel frontend URL
+      - key: EMAIL_HOST
+        value: smtp.gmail.com
+      - key: EMAIL_PORT
+        value: 587
+      - key: EMAIL_USER
+        sync: false
+      - key: EMAIL_PASSWORD
+        sync: false
+      - key: EMAIL_FROM_NAME
+        value: Smart Bus Tracker
+      - key: EMAIL_FROM_ADDRESS
+        sync: false
+      - key: RATE_LIMIT_WINDOW_MS
+        value: 900000
+      - key: RATE_LIMIT_MAX
+        value: 100

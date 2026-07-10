@@ -1,0 +1,435 @@
+{
+  "info": {
+    "name": "Smart Bus Tracking System API",
+    "description": "Complete API collection for Auth, Bus Management, Route Management, and Trip lifecycle. Set the {{baseUrl}}, {{accessToken}}, and ID variables in the collection's Variables tab after running Login/Create requests — most requests auto-save these via test scripts.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:5000/api" },
+    { "key": "accessToken", "value": "" },
+    { "key": "driverAccessToken", "value": "" },
+    { "key": "adminAccessToken", "value": "" },
+    { "key": "busId", "value": "" },
+    { "key": "routeId", "value": "" },
+    { "key": "stopId", "value": "" },
+    { "key": "driverId", "value": "" },
+    { "key": "tripId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "1. Auth",
+      "item": [
+        {
+          "name": "Register Passenger",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/auth/register", "host": ["{{baseUrl}}"], "path": ["auth", "register"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Asha Reddy\",\n  \"email\": \"asha@example.com\",\n  \"phone\": \"9876543210\",\n  \"password\": \"Passenger@123\",\n  \"confirmPassword\": \"Passenger@123\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const json = pm.response.json();",
+                  "  pm.collectionVariables.set('accessToken', json.accessToken);",
+                  "  pm.test('Registered and token received', () => pm.expect(json.accessToken).to.exist);",
+                  "} else {",
+                  "  pm.test('Register response', () => pm.expect.fail(pm.response.text()));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login Passenger",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth", "login"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"asha@example.com\",\n  \"password\": \"Passenger@123\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  pm.collectionVariables.set('accessToken', pm.response.json().accessToken);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Current User (Me)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/auth/me", "host": ["{{baseUrl}}"], "path": ["auth", "me"] }
+          }
+        },
+        {
+          "name": "Forgot Password",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/auth/forgot-password", "host": ["{{baseUrl}}"], "path": ["auth", "forgot-password"] },
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"asha@example.com\"\n}" }
+          }
+        },
+        {
+          "name": "Reset Password",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/auth/reset-password/:token", "host": ["{{baseUrl}}"], "path": ["auth", "reset-password", ":token"], "variable": [{ "key": "token", "value": "PASTE_TOKEN_FROM_EMAIL_LOG" }] },
+            "body": { "mode": "raw", "raw": "{\n  \"password\": \"NewPassword@123\",\n  \"confirmPassword\": \"NewPassword@123\"\n}" }
+          }
+        },
+        {
+          "name": "Change Password (logged in)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/auth/change-password", "host": ["{{baseUrl}}"], "path": ["auth", "change-password"] },
+            "body": { "mode": "raw", "raw": "{\n  \"currentPassword\": \"Passenger@123\",\n  \"newPassword\": \"Passenger@456\"\n}" }
+          }
+        },
+        {
+          "name": "Verify Email",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/auth/verify-email/:token", "host": ["{{baseUrl}}"], "path": ["auth", "verify-email", ":token"], "variable": [{ "key": "token", "value": "PASTE_TOKEN_FROM_EMAIL_LOG" }] }
+          }
+        },
+        {
+          "name": "Refresh Access Token",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{baseUrl}}/auth/refresh-token", "host": ["{{baseUrl}}"], "path": ["auth", "refresh-token"] },
+            "description": "Relies on the httpOnly refreshToken cookie set during login — Postman's cookie jar handles this automatically if 'Send cookies' is enabled."
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/auth/logout", "host": ["{{baseUrl}}"], "path": ["auth", "logout"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Bus Management",
+      "item": [
+        {
+          "name": "Create Bus (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminAccessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/buses", "host": ["{{baseUrl}}"], "path": ["buses"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"busNumber\": \"AP39Z-1234\",\n  \"vehicleNumber\": \"TS09EA1234\",\n  \"capacity\": 50,\n  \"busType\": \"ordinary\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  pm.collectionVariables.set('busId', pm.response.json().bus._id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get All Buses (Admin list)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/buses?page=1&limit=20", "host": ["{{baseUrl}}"], "path": ["buses"], "query": [{ "key": "page", "value": "1" }, { "key": "limit", "value": "20" }] }
+          }
+        },
+        {
+          "name": "Search Buses",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/buses/search?q=216&status=active", "host": ["{{baseUrl}}"], "path": ["buses", "search"], "query": [{ "key": "q", "value": "216" }, { "key": "status", "value": "active" }] }
+          }
+        },
+        {
+          "name": "Get Live Buses",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/buses/live?routeId={{routeId}}", "host": ["{{baseUrl}}"], "path": ["buses", "live"], "query": [{ "key": "routeId", "value": "{{routeId}}" }] }
+          }
+        },
+        {
+          "name": "Get Bus Details",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/buses/{{busId}}", "host": ["{{baseUrl}}"], "path": ["buses", "{{busId}}"] }
+          }
+        },
+        {
+          "name": "Update Bus (Admin)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminAccessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/buses/{{busId}}", "host": ["{{baseUrl}}"], "path": ["buses", "{{busId}}"] },
+            "body": { "mode": "raw", "raw": "{\n  \"capacity\": 55,\n  \"busType\": \"ac\"\n}" }
+          }
+        },
+        {
+          "name": "Assign Driver to Bus (Admin)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminAccessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/buses/{{busId}}/assign-driver", "host": ["{{baseUrl}}"], "path": ["buses", "{{busId}}", "assign-driver"] },
+            "body": { "mode": "raw", "raw": "{\n  \"driverId\": \"{{driverId}}\"\n}" }
+          }
+        },
+        {
+          "name": "Assign Route to Bus (Admin)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminAccessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/buses/{{busId}}/assign-route", "host": ["{{baseUrl}}"], "path": ["buses", "{{busId}}", "assign-route"] },
+            "body": { "mode": "raw", "raw": "{\n  \"routeId\": \"{{routeId}}\"\n}" }
+          }
+        },
+        {
+          "name": "Delete Bus (Admin)",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/buses/{{busId}}", "host": ["{{baseUrl}}"], "path": ["buses", "{{busId}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Route Management",
+      "item": [
+        {
+          "name": "Create Route (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminAccessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/routes", "host": ["{{baseUrl}}"], "path": ["routes"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"routeNumber\": \"216K\",\n  \"routeName\": \"Secunderabad to Hitech City\",\n  \"source\": \"Secunderabad\",\n  \"destination\": \"Hitech City\",\n  \"fare\": 35,\n  \"routeType\": \"city\",\n  \"stops\": [\n    { \"stop\": \"PASTE_STOP_ID_1\", \"sequence\": 1, \"expectedTimeFromStart\": 0, \"distanceFromStart\": 0 },\n    { \"stop\": \"PASTE_STOP_ID_2\", \"sequence\": 2, \"expectedTimeFromStart\": 15, \"distanceFromStart\": 6.2 },\n    { \"stop\": \"PASTE_STOP_ID_3\", \"sequence\": 3, \"expectedTimeFromStart\": 30, \"distanceFromStart\": 12.5 }\n  ]\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  pm.collectionVariables.set('routeId', pm.response.json().route._id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get All Routes",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/routes", "host": ["{{baseUrl}}"], "path": ["routes"] }
+          }
+        },
+        {
+          "name": "Search Routes (by source/destination)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/routes/search?from=Secunderabad&to=Hitech", "host": ["{{baseUrl}}"], "path": ["routes", "search"], "query": [{ "key": "from", "value": "Secunderabad" }, { "key": "to", "value": "Hitech" }] }
+          }
+        },
+        {
+          "name": "Search Routes (free text)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/routes/search?q=216K", "host": ["{{baseUrl}}"], "path": ["routes", "search"], "query": [{ "key": "q", "value": "216K" }] }
+          }
+        },
+        {
+          "name": "Nearest Stop Search",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/routes/stops/nearest?lat=17.4399&lng=78.4983&maxDistanceKm=2", "host": ["{{baseUrl}}"], "path": ["routes", "stops", "nearest"], "query": [{ "key": "lat", "value": "17.4399" }, { "key": "lng", "value": "78.4983" }, { "key": "maxDistanceKm", "value": "2" }] }
+          }
+        },
+        {
+          "name": "Get Route Details (with stops)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/routes/{{routeId}}", "host": ["{{baseUrl}}"], "path": ["routes", "{{routeId}}"] }
+          }
+        },
+        {
+          "name": "Get Remaining Stops",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/routes/{{routeId}}/remaining-stops?currentSequence=1", "host": ["{{baseUrl}}"], "path": ["routes", "{{routeId}}", "remaining-stops"], "query": [{ "key": "currentSequence", "value": "1" }] }
+          }
+        },
+        {
+          "name": "Update Route (Admin)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminAccessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/routes/{{routeId}}", "host": ["{{baseUrl}}"], "path": ["routes", "{{routeId}}"] },
+            "body": { "mode": "raw", "raw": "{\n  \"fare\": 40\n}" }
+          }
+        },
+        {
+          "name": "Add Stop to Route (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminAccessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/routes/{{routeId}}/stops", "host": ["{{baseUrl}}"], "path": ["routes", "{{routeId}}", "stops"] },
+            "body": { "mode": "raw", "raw": "{\n  \"stopId\": \"{{stopId}}\",\n  \"sequence\": 4,\n  \"expectedTimeFromStart\": 40,\n  \"distanceFromStart\": 16.0\n}" }
+          }
+        },
+        {
+          "name": "Remove Stop from Route (Admin)",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/routes/{{routeId}}/stops/{{stopId}}", "host": ["{{baseUrl}}"], "path": ["routes", "{{routeId}}", "stops", "{{stopId}}"] }
+          }
+        },
+        {
+          "name": "Delete Route (Admin)",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/routes/{{routeId}}", "host": ["{{baseUrl}}"], "path": ["routes", "{{routeId}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Trips (Live Tracking entry/exit)",
+      "item": [
+        {
+          "name": "Start Trip (Driver)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{driverAccessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/trips/start", "host": ["{{baseUrl}}"], "path": ["trips", "start"] },
+            "body": { "mode": "raw", "raw": "{\n  \"busId\": \"{{busId}}\"\n}" }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  pm.collectionVariables.set('tripId', pm.response.json().trip._id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Trip Details",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/trips/{{tripId}}", "host": ["{{baseUrl}}"], "path": ["trips", "{{tripId}}"] }
+          }
+        },
+        {
+          "name": "Get Trip History",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/trips/history?busId={{busId}}", "host": ["{{baseUrl}}"], "path": ["trips", "history"], "query": [{ "key": "busId", "value": "{{busId}}" }] }
+          }
+        },
+        {
+          "name": "End Trip (Driver)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{driverAccessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/trips/{{tripId}}/end", "host": ["{{baseUrl}}"], "path": ["trips", "{{tripId}}", "end"] },
+            "body": { "mode": "raw", "raw": "{\n  \"latitude\": 17.4435,\n  \"longitude\": 78.3772\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Health Check",
+      "item": [
+        {
+          "name": "API Health",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "http://localhost:5000/health", "host": ["http://localhost:5000"], "path": ["health"] }
+          }
+        }
+      ]
+    }
+  ]
+}

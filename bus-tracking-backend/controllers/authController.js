@@ -127,30 +127,49 @@ exports.register = catchAsync(async (req, res, next) => {
 exports.login = catchAsync(async (req, res, next) => {
   const { email, password } = req.body;
 
-  // ── Step 1: Find user and explicitly include the password field ──────────
-  // Remember: password has `select: false` in the schema, so we must
-  // opt back in with .select('+password') to get it for comparison.
-  const user = await User.findOne({ email }).select('+password');
+  // Try Admin first
+  let account = await Admin.findOne({ email }).select("+password");
 
-  // ── Step 2: Verify user exists AND password matches ───────────────────────
-  // We check both conditions in one place to keep timing consistent
-  // (prevents timing attacks that could reveal whether the email exists).
-  if (!user || !(await user.comparePassword(password))) {
-    return next(new AppError('Invalid email or password.', 401));
+  // If not found, try Driver
+  if (!account) {
+    account = await Driver.findOne({ email }).select("+password");
   }
 
-  // ── Step 3: Check account is active ────────────────────────────────────────
-  if (!user.isActive) {
-    return next(new AppError('Your account has been deactivated. Please contact support.', 403));
+  // If not found, try Passenger
+  if (!account) {
+    account = await User.findOne({ email }).select("+password");
   }
 
-  // ── Step 4: Update last login timestamp ────────────────────────────────────
-  user.lastLogin = new Date();
-  await user.save({ validateBeforeSave: false });
+  // Check account exists
+  if (!account) {
+    return next(new AppError("Invalid email or password.", 401));
+  }
 
-  // ── Step 5: Issue tokens ────────────────────────────────────────────────────
-  logger.info(`🔓 User logged in: ${user.email}`);
-  sendTokenResponse(user, 200, res);
+  // Check password
+  const isMatch = await account.comparePassword(password);
+
+  if (!isMatch) {
+    return next(new AppError("Invalid email or password.", 401));
+  }
+
+  // Check account status
+  if (!account.isActive) {
+    return next(
+      new AppError(
+        "Your account has been deactivated. Please contact support.",
+        403
+      )
+    );
+  }
+
+  // Update last login
+  account.lastLogin = new Date();
+  await account.save({ validateBeforeSave: false });
+
+  logger.info(`🔓 ${account.role} logged in: ${account.email}`);
+
+  // Send token
+  sendTokenResponse(account, 200, res);
 });
 
 

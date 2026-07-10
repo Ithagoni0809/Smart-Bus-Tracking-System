@@ -54,9 +54,11 @@ exports.protect = catchAsync(async (req, res, next) => {
   // We check all three collections because a single JWT system serves
   // passengers, drivers, AND admins — the role tells us which collection to query.
   let currentAccount;
-  if (decoded.role === 'passenger') {
-    currentAccount = await User.findById(decoded.id);
-  } else if (decoded.role === 'driver') {
+  if (decoded.role === 'passenger') 
+  {
+  currentAccount = await User.findById(decoded.id);
+  }
+  else if (decoded.role === 'driver') {
     currentAccount = await Driver.findById(decoded.id);
   } else if (decoded.role === 'admin' || decoded.role === 'superadmin') {
     currentAccount = await Admin.findById(decoded.id);

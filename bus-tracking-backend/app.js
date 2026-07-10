@@ -65,6 +65,12 @@ app.use('/api/trips',         tripRoutes);
 app.use('/api/admin',         adminRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/favorites',     favoriteRoutes);
+app.get("/", (req, res) => {
+  res.json({
+    success: true,
+    message: "Smart Bus Tracking Backend is running 🚍"
+  });
+});
 
 // ── Error Handling (must be last) ─────────────────────────────────────────────
 app.use(notFound);

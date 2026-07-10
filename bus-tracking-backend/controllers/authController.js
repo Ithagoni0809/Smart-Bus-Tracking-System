@@ -64,6 +64,8 @@ exports.register = catchAsync(async (req, res, next) => {
 
   // ── Step 1: Check for existing account ────────────────────────────────────
   const existingUser = await User.findOne({ email });
+  console.log("Email searched:", email);
+  console.log("Existing User:", existingUser);
   if (existingUser) {
     return next(new AppError('An account with this email already exists. Please log in instead.', 409));
   }
@@ -82,8 +84,7 @@ exports.register = catchAsync(async (req, res, next) => {
   // (e.g., password minlength) since we're only updating token fields here.
 
   // ── Step 4: Send verification email (non-blocking on failure) ─────────────
-  const verificationUrl = `${process.env.CLIENT_URL}/verify-email/${rawVerificationToken}`;
-
+  if (process.env.NODE_ENV !== 'test') {
   try {
     await sendEmail({
       to: newUser.email,
@@ -91,10 +92,11 @@ exports.register = catchAsync(async (req, res, next) => {
       templateData: [newUser.name, verificationUrl],
     });
   } catch (emailError) {
-    // We log this but don't fail the registration — the user can request
-    // a new verification email later via a "resend verification" endpoint.
-    logger.error(`Failed to send verification email to ${newUser.email}: ${emailError.message}`);
+    logger.error(
+      `Failed to send verification email to ${newUser.email}: ${emailError.message}`
+    );
   }
+}
 
   // ── Step 5: Log the user in immediately ────────────────────────────────────
   logger.info(`✅ New passenger registered: ${newUser.email}`);

@@ -91,8 +91,8 @@ const AdminDashboard = () => {
           </div>
         </div>
         <div className="flex gap-2">
-          <Link to="/admin/buses/new" className="btn-primary text-sm"><Plus size={15} /> Add Bus</Link>
-          <Link to="/admin/routes/new" className="btn-secondary text-sm"><Plus size={15} /> Add Route</Link>
+          <Link to="/admin/buses" className="btn-primary text-sm"><Plus size={15} /> Add Bus</Link>
+          <Link to="/admin/routes" className="btn-secondary text-sm"><Plus size={15} /> Add Route</Link>
         </div>
       </div>
 

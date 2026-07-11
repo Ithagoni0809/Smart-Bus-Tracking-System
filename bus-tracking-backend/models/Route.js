@@ -170,8 +170,12 @@ routeSchema.index({ isActive: 1 });
 routeSchema.index({ routeName: 'text', source: 'text', destination: 'text' });
 
 // ── Virtual: Total Stop Count ───────────────────────────────────────────────
+// NOTE: `stops` is often intentionally excluded via .select() (e.g. list views)
+// or absent on a populated sub-document (e.g. Bus.populate('assignedRoute', 'routeNumber routeName')).
+// In both cases `this.stops` is undefined, so guard against that instead of
+// crashing every request that touches a partially-selected Route document.
 routeSchema.virtual('stopCount').get(function () {
-  return this.stops.length || 0;
+  return this.stops ? this.stops.length : undefined;
 });
 
 // ── Instance Method: Get stop sequence by Stop ID ───────────────────────────

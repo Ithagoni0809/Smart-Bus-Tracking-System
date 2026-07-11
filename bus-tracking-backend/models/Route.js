@@ -171,7 +171,7 @@ routeSchema.index({ routeName: 'text', source: 'text', destination: 'text' });
 
 // ── Virtual: Total Stop Count ───────────────────────────────────────────────
 routeSchema.virtual('stopCount').get(function () {
-  return this.stops.length;
+  return this.stops.length || 0;
 });
 
 // ── Instance Method: Get stop sequence by Stop ID ───────────────────────────

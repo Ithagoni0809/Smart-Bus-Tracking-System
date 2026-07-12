@@ -316,7 +316,17 @@ exports.verifyEmail = catchAsync(async (req, res, next) => {
  *          Useful if the original email expired (24h) or was lost.
  */
 exports.resendVerificationEmail = catchAsync(async (req, res, next) => {
-  const user = await User.findById(req.user._id);
+  // Email verification only exists for passengers (self-registered accounts).
+  // Admin/Driver accounts are created by an authority and have no
+  // isEmailVerified field on their schema at all — re-querying User by
+  // req.user._id here (as this used to) returns null for those roles and
+  // crashes on the next line. Reject explicitly instead.
+  if (req.user.role !== 'passenger') {
+    return next(new AppError('Email verification does not apply to this account type.', 400));
+  }
+
+  // protect already fetched the correct, live document — no need to re-query.
+  const user = req.user;
 
   if (user.isEmailVerified) {
     return next(new AppError('This email is already verified.', 400));

@@ -15,6 +15,10 @@
 import { io } from 'socket.io-client';
 
 let socketInstance = null;
+// Tracks the token the current connection was authenticated with, so we
+// can tell "still the same session" apart from "user just logged in/out"
+// (undefined = no connection made yet; distinct from null = connected anonymously).
+let authedToken;
 
 /**
  * getSocket — returns the singleton Socket.IO client.
@@ -22,8 +26,7 @@ let socketInstance = null;
  *                         Pass null for anonymous (public bus tracking).
  */
 export const getSocket = (token = null) => {
-  // If no socket exists, OR the existing socket is disconnected, create a new one
-  if (!socketInstance || !socketInstance.connected) {
+  if (!socketInstance) {
     socketInstance = io(import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000', {
       auth: { token }, // Sent to socket server's middleware for JWT verification
       autoConnect: true,
@@ -33,7 +36,24 @@ export const getSocket = (token = null) => {
       reconnectionDelayMax: 10000,     // Max out at 10s (exponential backoff)
       timeout: 20000,
     });
+    authedToken = token;
+    return socketInstance;
   }
+
+  // WHY THIS CHECK MATTERS: without it, a socket that connected anonymously
+  // BEFORE login (e.g. public live-map view loaded pre-auth) would silently
+  // stay anonymous forever — later calls to getSocket(realToken) would just
+  // return the same already-connected instance without ever re-authenticating,
+  // so server-side `socket.user` (and anything gated on it, like the admin
+  // room) would never get set. Detect the token change and force a fresh
+  // handshake so the server actually re-runs its auth middleware.
+  if (token !== authedToken) {
+    authedToken = token;
+    socketInstance.auth = { token };
+    if (socketInstance.connected) socketInstance.disconnect();
+    socketInstance.connect();
+  }
+
   return socketInstance;
 };
 
@@ -45,6 +65,7 @@ export const disconnectSocket = () => {
   if (socketInstance) {
     socketInstance.disconnect();
     socketInstance = null;
+    authedToken = undefined;
   }
 };
 

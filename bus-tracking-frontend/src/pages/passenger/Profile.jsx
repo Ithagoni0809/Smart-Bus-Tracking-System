@@ -15,6 +15,19 @@ const Profile = () => {
   const [pwForm, setPwForm] = useState({ currentPassword: '', newPassword: '' });
   const [savingPw, setSavingPw] = useState(false);
   const [activeTab, setActiveTab] = useState('profile'); // 'profile' | 'security'
+  const [resendingVerification, setResendingVerification] = useState(false);
+
+  const handleResendVerification = async () => {
+    setResendingVerification(true);
+    try {
+      await authAPI.resendVerification();
+      toast.success('Verification email sent — check your inbox');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to resend verification email');
+    } finally {
+      setResendingVerification(false);
+    }
+  };
 
   const handlePasswordChange = async (e) => {
     e.preventDefault();
@@ -48,13 +61,32 @@ const Profile = () => {
         <div>
           <p className="text-xl font-bold text-gray-900 dark:text-white">{user?.name}</p>
           <p className="text-sm text-gray-500 capitalize">{user?.role} account</p>
-          <div className={`inline-flex items-center gap-1 text-xs mt-1 px-2 py-0.5 rounded-full font-medium ${
-            user?.isEmailVerified
-              ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-              : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
-          }`}>
-            <Shield size={10} /> {user?.isEmailVerified ? 'Verified' : 'Email not verified'}
-          </div>
+          {/* Email verification only applies to passengers (self-registered).
+              Admin/driver accounts are created by an authority (superadmin/admin),
+              not self-signed-up, so there's no verification concept for them —
+              isEmailVerified is simply undefined on those schemas. Showing the
+              badge there would be misleading ("not verified" implies action
+              needed, when really none applies). */}
+          {user?.role === 'passenger' && (
+            <div className="mt-1 flex items-center gap-2">
+              <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium ${
+                user?.isEmailVerified
+                  ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                  : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
+              }`}>
+                <Shield size={10} /> {user?.isEmailVerified ? 'Verified' : 'Email not verified'}
+              </span>
+              {!user?.isEmailVerified && (
+                <button
+                  onClick={handleResendVerification}
+                  disabled={resendingVerification}
+                  className="text-xs text-brand-blue hover:underline disabled:opacity-50"
+                >
+                  {resendingVerification ? 'Sending...' : 'Resend email'}
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

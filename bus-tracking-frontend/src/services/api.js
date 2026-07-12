@@ -16,8 +16,16 @@
 import axios from 'axios';
 
 // Create an Axios instance with defaults
+// baseURL resolution:
+//  - Local dev (`npm run dev`): relative '/api' lets Vite's server.proxy
+//    (vite.config.js) forward to http://localhost:5000/api — avoids CORS
+//    entirely during development.
+//  - Production build: Vite's dev proxy does NOT exist at runtime (it's a
+//    dev-server-only feature), and frontend/backend are separate deployed
+//    services with different domains — so we need the real backend URL,
+//    baked in at build time via VITE_API_URL.
 const api = axios.create({
-  baseURL: '/api',        // Vite dev proxy forwards this to http://localhost:5000/api
+  baseURL: import.meta.env.VITE_API_URL || '/api',
   withCredentials: true,  // CRITICAL: sends the httpOnly refreshToken cookie on every request
   headers: { 'Content-Type': 'application/json' },
 });

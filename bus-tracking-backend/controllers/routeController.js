@@ -326,8 +326,16 @@ exports.getRoute = catchAsync(async (req, res, next) => {
  * @access  Any authenticated user
  */
 exports.getAllRoutes = catchAsync(async (req, res, next) => {
-  const routes = await Route.find({ isActive: true })
-    .select('routeNumber routeName source destination totalDistance expectedDuration fare routeType')
+  // Passengers/drivers should only ever see routes currently in service.
+  // Admins/superadmins manage the full list, including deactivated routes —
+  // otherwise a route would permanently vanish from the admin's own
+  // management page the moment it's deactivated, with no way to see or
+  // reactivate it again.
+  const isAdminRole = req.user.role === 'admin' || req.user.role === 'superadmin';
+  const filter = isAdminRole ? {} : { isActive: true };
+
+  const routes = await Route.find(filter)
+    .select('routeNumber routeName source destination totalDistance expectedDuration fare routeType isActive')
     .sort('routeNumber');
 
   res.status(200).json({ success: true, count: routes.length, routes });

@@ -58,15 +58,20 @@ const {
  *      immediately (common UX pattern: verify-later, not verify-to-use).
  */
 exports.register = catchAsync(async (req, res, next) => {
-  console.log("BODY RECEIVED:", req.body);
-
   const { name, email, phone, password } = req.body;
 
-  // ── Step 1: Check for existing account ────────────────────────────────────
-  const existingUser = await User.findOne({ email });
-  console.log("Email searched:", email);
-  console.log("Existing User:", existingUser);
-  if (existingUser) {
+  // ── Step 1: Check for existing account across ALL role collections ────────
+  // Login resolves accounts by email across User/Admin/Driver, so a
+  // passenger registering with an email already used by a driver or admin
+  // would silently create a second, unreachable-by-that-email account
+  // (whichever collection login checks first would win, permanently
+  // shadowing the other). Block that at creation time instead.
+  const [existingUser, existingAdmin, existingDriver] = await Promise.all([
+    User.findOne({ email }),
+    Admin.findOne({ email }),
+    Driver.findOne({ email }),
+  ]);
+  if (existingUser || existingAdmin || existingDriver) {
     return next(new AppError('An account with this email already exists. Please log in instead.', 409));
   }
 
@@ -84,7 +89,8 @@ exports.register = catchAsync(async (req, res, next) => {
   // (e.g., password minlength) since we're only updating token fields here.
 
   // ── Step 4: Send verification email (non-blocking on failure) ─────────────
-  if (process.env.NODE_ENV !== 'test') {
+  const verificationUrl = `${process.env.CLIENT_URL}/verify-email/${rawVerificationToken}`;
+
   try {
     await sendEmail({
       to: newUser.email,
@@ -92,11 +98,10 @@ exports.register = catchAsync(async (req, res, next) => {
       templateData: [newUser.name, verificationUrl],
     });
   } catch (emailError) {
-    logger.error(
-      `Failed to send verification email to ${newUser.email}: ${emailError.message}`
-    );
+    // We log this but don't fail the registration — the user can request
+    // a new verification email later via a "resend verification" endpoint.
+    logger.error(`Failed to send verification email to ${newUser.email}: ${emailError.message}`);
   }
-}
 
   // ── Step 5: Log the user in immediately ────────────────────────────────────
   logger.info(`✅ New passenger registered: ${newUser.email}`);
@@ -127,48 +132,36 @@ exports.register = catchAsync(async (req, res, next) => {
 exports.login = catchAsync(async (req, res, next) => {
   const { email, password } = req.body;
 
-  // Try Admin first
-  let account = await Admin.findOne({ email }).select("+password");
+  // ── Step 1: Find the account across ALL role collections ─────────────────
+  // One login form serves passengers, drivers, AND admins — we don't know
+  // which collection this email belongs to ahead of time, so we check each
+  // in turn. Emails are unique per-collection (not globally), but in
+  // practice an account only ever exists in exactly one of these.
+  // .select('+password') is needed on each since password has select:false.
+  let account = await User.findOne({ email }).select('+password');
+  if (!account) account = await Admin.findOne({ email }).select('+password');
+  if (!account) account = await Driver.findOne({ email }).select('+password');
 
-  // If not found, try Driver
-  if (!account) {
-    account = await Driver.findOne({ email }).select("+password");
+  // ── Step 2: Verify account exists AND password matches ────────────────────
+  // Checked together (rather than "no account" vs "wrong password" as separate
+  // errors) to avoid leaking which emails are registered (timing/enumeration attack).
+  if (!account || !(await account.comparePassword(password))) {
+    return next(new AppError('Invalid email or password.', 401));
   }
 
-  // If not found, try Passenger
-  if (!account) {
-    account = await User.findOne({ email }).select("+password");
-  }
-
-  // Check account exists
-  if (!account) {
-    return next(new AppError("Invalid email or password.", 401));
-  }
-
-  // Check password
-  const isMatch = await account.comparePassword(password);
-
-  if (!isMatch) {
-    return next(new AppError("Invalid email or password.", 401));
-  }
-
-  // Check account status
+  // ── Step 3: Check account is active ────────────────────────────────────────
   if (!account.isActive) {
-    return next(
-      new AppError(
-        "Your account has been deactivated. Please contact support.",
-        403
-      )
-    );
+    return next(new AppError('Your account has been deactivated. Please contact support.', 403));
   }
 
-  // Update last login
-  account.lastLogin = new Date();
-  await account.save({ validateBeforeSave: false });
+  // ── Step 4: Update last login timestamp (only where the schema has it) ────
+  if (account.schema.path('lastLogin')) {
+    account.lastLogin = new Date();
+    await account.save({ validateBeforeSave: false });
+  }
 
-  logger.info(`🔓 ${account.role} logged in: ${account.email}`);
-
-  // Send token
+  // ── Step 5: Issue tokens ────────────────────────────────────────────────────
+  logger.info(`🔓 Account logged in: ${account.email} (${account.role})`);
   sendTokenResponse(account, 200, res);
 });
 

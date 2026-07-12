@@ -97,8 +97,8 @@ const ManageAdmins = () => {
     if (!window.confirm(`${verb === 'deactivate' ? 'Deactivate' : 'Activate'} ${name}?`)) return;
     try {
       await adminAPI.toggleAdminStatus(id);
+      await load();
       toast.success(`${name} ${isActive ? 'deactivated' : 'activated'}`);
-      load();
     } catch (e) { toast.error(e.response?.data?.message || 'Update failed'); }
   };
 
@@ -107,8 +107,8 @@ const ManageAdmins = () => {
     if (!window.confirm(`Change ${name}'s role to ${newRole}?`)) return;
     try {
       await adminAPI.updateAdminRole(id, newRole);
+      await load();
       toast.success(`${name} is now ${newRole}`);
-      load();
     } catch (e) { toast.error(e.response?.data?.message || 'Role change failed'); }
   };
 

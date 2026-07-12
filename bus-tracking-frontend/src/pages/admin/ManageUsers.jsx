@@ -27,8 +27,8 @@ const ManageUsers = () => {
   const handleToggle = async (id, currentStatus, name) => {
     try {
       await adminAPI.toggleUserStatus(id);
+      await load();
       toast.success(`${name} ${currentStatus ? 'deactivated' : 'activated'}`);
-      load();
     } catch { toast.error('Update failed'); }
   };
 

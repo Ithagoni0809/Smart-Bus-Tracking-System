@@ -237,7 +237,7 @@ const ManageRoutes = () => {
   const handleToggle = async (id, isActive) => {
     try {
       await routeAPI.update(id, { isActive: !isActive });
-      load();
+      await load();
       toast.success(isActive ? 'Route deactivated' : 'Route activated');
     } catch { toast.error('Update failed'); }
   };

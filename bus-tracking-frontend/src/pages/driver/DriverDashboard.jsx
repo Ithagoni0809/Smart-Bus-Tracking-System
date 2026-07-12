@@ -5,7 +5,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Play, Square, MapPin, Users, AlertTriangle, Wrench, Navigation, Clock, History, Bus } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
-import { tripAPI } from '../../services/api';
+import { tripAPI, authAPI } from '../../services/api';
 import toast from 'react-hot-toast';
 
 const StatusBadge = ({ active, label }) => (
@@ -24,7 +24,7 @@ const InfoTile = ({ icon: Icon, label, value, color = 'text-brand-blue' }) => (
 );
 
 const DriverDashboard = () => {
-  const { user } = useAuth();
+  const { user, setUser } = useAuth();
   const { socket, isConnected } = useSocket();
   const [trip, setTrip] = useState(null);
   const [occupancy, setOccupancy] = useState(0);
@@ -40,6 +40,19 @@ const DriverDashboard = () => {
   const elapsedIntervalRef = useRef(null);
   const occupancyRef = useRef(0);
   occupancyRef.current = occupancy;
+
+  // Refresh this driver's own data on mount. WHY: `user` in AuthContext is
+  // only set once, at login/app-load, and never refreshed automatically.
+  // If an admin assigns this driver to a bus WHILE they're already logged
+  // in, `user.assignedBus` stays stale in memory — starting a trip would
+  // then silently send `busId: undefined` and fail with a confusing
+  // "valid busId is required" error, even though the assignment is
+  // correct server-side. Re-fetching here (cheap, one-time on mount)
+  // keeps this page's view of the driver's own assignment current
+  // without requiring a full logout/login.
+  useEffect(() => {
+    authAPI.getMe().then(res => setUser(res.data.user)).catch(() => {});
+  }, []);
 
   useEffect(() => {
     const loadHistory = async () => {

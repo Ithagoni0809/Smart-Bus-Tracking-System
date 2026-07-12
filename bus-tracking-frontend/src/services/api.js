@@ -15,13 +15,13 @@
 
 import axios from 'axios';
 
+// Create an Axios instance with defaults
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
-  withCredentials: true,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  baseURL: '/api',        // Vite dev proxy forwards this to http://localhost:5000/api
+  withCredentials: true,  // CRITICAL: sends the httpOnly refreshToken cookie on every request
+  headers: { 'Content-Type': 'application/json' },
 });
+
 // ── Request Interceptor ─────────────────────────────────────────────────────
 // Runs before EVERY outgoing request.
 // Reads the access token from the module-level store and attaches it.
@@ -198,4 +198,10 @@ export const adminAPI = {
   deactivateDriver: (id)     => api.patch(`/admin/drivers/${id}/deactivate`),
   getAllUsers:       (params) => api.get('/admin/users', { params }),
   toggleUserStatus: (id)     => api.patch(`/admin/users/${id}/toggle`),
+  // Admin management (superadmin only)
+  getAllAdmins:         ()        => api.get('/admin/admins'),
+  createAdmin:          (data)    => api.post('/admin/admins', data),
+  toggleAdminStatus:    (id)      => api.patch(`/admin/admins/${id}/toggle`),
+  updateAdminRole:      (id, role) => api.patch(`/admin/admins/${id}/role`, { role }),
+  updateAdminPermissions: (id, permissions) => api.patch(`/admin/admins/${id}/permissions`, { permissions }),
 };

@@ -16,7 +16,6 @@ const Login          = lazy(() => import('./pages/Login'));
 const Register       = lazy(() => import('./pages/Register'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
 const NotFound       = lazy(() => import('./pages/NotFound'));
-const VerifyEmail = lazy(() => import('./pages/VerifyEmail'));
 
 // Passenger
 const Dashboard     = lazy(() => import('./pages/passenger/Dashboard'));
@@ -38,6 +37,7 @@ const ManageRoutes   = lazy(() => import('./pages/admin/ManageRoutes'));
 const ManageDrivers  = lazy(() => import('./pages/admin/ManageDrivers'));
 const ManageStops    = lazy(() => import('./pages/admin/ManageStops'));
 const ManageUsers    = lazy(() => import('./pages/admin/ManageUsers'));
+const ManageAdmins   = lazy(() => import('./pages/admin/ManageAdmins'));
 const Analytics      = lazy(() => import('./pages/admin/Analytics'));
 
 const PageLoader = () => (
@@ -69,7 +69,6 @@ function App() {
                 <Route path="/login"           element={<Login />} />
                 <Route path="/register"        element={<Register />} />
                 <Route path="/forgot-password" element={<ForgotPassword />} />
-                <Route path="/verify-email/:token"element={<VerifyEmail />}/>
 
                 {/* ── Passenger ──────────────────────────── */}
                 <Route path="/dashboard"     element={<ProtectedRoute roles={['passenger']}><Dashboard /></ProtectedRoute>} />
@@ -91,6 +90,7 @@ function App() {
                 <Route path="/admin/drivers"        element={<ProtectedRoute roles={ADMIN_ROLES}><ManageDrivers /></ProtectedRoute>} />
                 <Route path="/admin/stops"          element={<ProtectedRoute roles={ADMIN_ROLES}><ManageStops /></ProtectedRoute>} />
                 <Route path="/admin/users"          element={<ProtectedRoute roles={ADMIN_ROLES}><ManageUsers /></ProtectedRoute>} />
+                <Route path="/admin/admins"         element={<ProtectedRoute roles={['superadmin']}><ManageAdmins /></ProtectedRoute>} />
                 <Route path="/admin/analytics"      element={<ProtectedRoute roles={ADMIN_ROLES}><Analytics /></ProtectedRoute>} />
 
                 {/* ── Fallback ────────────────────────────── */}

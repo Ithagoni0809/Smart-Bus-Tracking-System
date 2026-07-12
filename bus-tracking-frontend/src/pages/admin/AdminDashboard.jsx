@@ -1,9 +1,10 @@
 // src/pages/admin/AdminDashboard.jsx
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Bus, Map, Users, AlertTriangle, TrendingUp, Settings, Plus, Activity } from 'lucide-react';
+import { Bus, Map, Users, AlertTriangle, TrendingUp, Settings, Plus, Activity, Crown } from 'lucide-react';
 import { busAPI, routeAPI } from '../../services/api';
 import { useSocket } from '../../context/SocketContext';
+import { useAuth } from '../../context/AuthContext';
 import Spinner from '../../components/common/Spinner';
 import toast from 'react-hot-toast';
 
@@ -24,6 +25,7 @@ const StatCard = ({ icon: Icon, label, value, sub, color }) => (
 
 const AdminDashboard = () => {
   const { socket, isConnected } = useSocket();
+  const { user } = useAuth();
   const [liveBuses, setLiveBuses] = useState([]);
   const [allBuses, setAllBuses] = useState([]);
   const [routes, setRoutes] = useState([]);
@@ -183,6 +185,9 @@ const AdminDashboard = () => {
           { label: 'Manage Routes',  to: '/admin/routes',  icon: Map,      color: 'bg-green-100 text-green-700'  },
           { label: 'Manage Drivers', to: '/admin/drivers', icon: Users,    color: 'bg-amber-100 text-amber-700'  },
           { label: 'Analytics',      to: '/admin/analytics',icon: TrendingUp,color:'bg-purple-100 text-purple-700'},
+          ...(user?.role === 'superadmin'
+            ? [{ label: 'Manage Admins', to: '/admin/admins', icon: Crown, color: 'bg-red-100 text-red-700' }]
+            : []),
         ].map(({ label, to, icon: Icon, color }) => (
           <Link key={to} to={to} className={`flex flex-col items-center gap-2 p-4 rounded-xl ${color} hover:opacity-80 transition-opacity text-center`}>
             <Icon size={22} />

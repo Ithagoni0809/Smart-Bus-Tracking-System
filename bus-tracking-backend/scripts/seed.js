@@ -16,21 +16,36 @@ const seed = async () => {
   await connectDB();
   console.log('🌱 Seeding database...\n');
 
-  // ── Admin ───────────────────────────────────────────────────────────────
-  const existingAdmin = await Admin.findOne({ email: 'admin@bustrack.com' });
+  // ── Admin (head/superadmin account) ────────────────────────────────────
+  // Credentials come from env vars, NOT hardcoded, so your real login
+  // never ends up committed to the repo. Set these in your .env
+  // (locally) and in Render's Environment tab (for production) before
+  // running this script. Falls back to a dev default if unset, purely
+  // so the script still runs out of the box during local development.
+  const HEAD_ADMIN_NAME     = process.env.HEAD_ADMIN_NAME     || 'System Admin';
+  const HEAD_ADMIN_EMAIL    = process.env.HEAD_ADMIN_EMAIL    || 'admin@bustrack.com';
+  const HEAD_ADMIN_PHONE    = process.env.HEAD_ADMIN_PHONE    || '9000000001';
+  const HEAD_ADMIN_PASSWORD = process.env.HEAD_ADMIN_PASSWORD || 'Admin@1234';
+
+  const existingAdmin = await Admin.findOne({ email: HEAD_ADMIN_EMAIL });
   let admin;
   if (!existingAdmin) {
     admin = await Admin.create({
-      name: 'System Admin',
-      email: 'admin@bustrack.com',
-      phone: '9000000001',
-      password: 'Admin@1234',
-      role: 'admin',
+      name: HEAD_ADMIN_NAME,
+      email: HEAD_ADMIN_EMAIL,
+      phone: HEAD_ADMIN_PHONE,
+      password: HEAD_ADMIN_PASSWORD,
+      role: 'superadmin',
     });
-    console.log('✅ Admin created: admin@bustrack.com / Admin@1234');
+    console.log(`✅ Superadmin created: ${HEAD_ADMIN_EMAIL}`);
+  } else if (existingAdmin.role !== 'superadmin') {
+    existingAdmin.role = 'superadmin';
+    await existingAdmin.save({ validateBeforeSave: false });
+    admin = existingAdmin;
+    console.log(`⬆️  Existing admin upgraded to superadmin: ${HEAD_ADMIN_EMAIL}`);
   } else {
     admin = existingAdmin;
-    console.log('ℹ️  Admin already exists, skipping.');
+    console.log(`ℹ️  Superadmin already exists, skipping: ${HEAD_ADMIN_EMAIL}`);
   }
 
   // ── Stops (Hyderabad sample) ────────────────────────────────────────────

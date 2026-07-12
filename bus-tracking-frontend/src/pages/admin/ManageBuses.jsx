@@ -1,7 +1,7 @@
-// Admin: Manage Buses page - full CRUD
+// Admin: Manage Buses page - full CRUD + driver/route assignment
 import React, { useState, useEffect } from 'react';
-import { Plus, Pencil, Trash2, Bus, Search, X, Save } from 'lucide-react';
-import { busAPI } from '../../services/api';
+import { Plus, Pencil, Trash2, Bus, Search, X, Save, UserCog } from 'lucide-react';
+import { busAPI, adminAPI, routeAPI } from '../../services/api';
 import Spinner from '../../components/common/Spinner';
 import toast from 'react-hot-toast';
 
@@ -48,11 +48,121 @@ const BusModal = ({ bus, onClose, onSaved }) => {
   );
 };
 
+// Assigns a driver and/or route to a bus. Two independent PATCH calls
+// (assign-driver, assign-route) since the backend treats them as separate
+// operations — only calls the ones whose value actually changed, so
+// clearing/leaving a field blank doesn't unintentionally wipe an existing
+// assignment.
+const AssignModal = ({ bus, drivers, routes, onClose, onSaved }) => {
+  const [driverId, setDriverId] = useState(bus.assignedDriver?._id || '');
+  const [routeId, setRouteId]   = useState(bus.assignedRoute?._id || '');
+  const [saving, setSaving] = useState(false);
+
+  // Only offer drivers who are unassigned OR already assigned to THIS bus —
+  // an active driver on another bus can't be picked here (backend also
+  // enforces this; filtering client-side just avoids a round-trip 409).
+  const availableDrivers = drivers.filter(
+    d => !d.assignedBus || d.assignedBus === bus._id || d.assignedBus?._id === bus._id
+  );
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const calls = [];
+      if (driverId && driverId !== (bus.assignedDriver?._id || '')) {
+        calls.push(busAPI.assignDriver(bus._id, driverId));
+      }
+      if (routeId && routeId !== (bus.assignedRoute?._id || '')) {
+        calls.push(busAPI.assignRoute(bus._id, routeId));
+      }
+      if (calls.length === 0) {
+        toast('Nothing changed');
+        setSaving(false);
+        return;
+      }
+      await Promise.all(calls);
+      toast.success('Assignment updated');
+      onSaved();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to update assignment');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md shadow-2xl">
+        <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-gray-700">
+          <h2 className="font-bold text-gray-900 dark:text-white">Assign Driver & Route — {bus.busNumber}</h2>
+          <button onClick={onClose}><X size={18} className="text-gray-400" /></button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-5 space-y-3">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Driver</label>
+            <select className="input-field" value={driverId} onChange={e => setDriverId(e.target.value)}>
+              <option value="">— Unassigned —</option>
+              {availableDrivers.map(d => (
+                <option key={d._id} value={d._id}>{d.name} ({d.employeeId})</option>
+              ))}
+            </select>
+            {drivers.length === 0 && (
+              <p className="text-xs text-amber-600 mt-1">No drivers exist yet — add one under Manage Drivers first.</p>
+            )}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Route</label>
+            <select className="input-field" value={routeId} onChange={e => setRouteId(e.target.value)}>
+              <option value="">— Unassigned —</option>
+              {routes.map(r => (
+                <option key={r._id} value={r._id}>{r.routeNumber} — {r.routeName}</option>
+              ))}
+            </select>
+            {routes.length === 0 && (
+              <p className="text-xs text-amber-600 mt-1">No routes exist yet — add one under Manage Routes first.</p>
+            )}
+          </div>
+          <p className="text-xs text-gray-500">
+            A driver must be assigned to a bus before they can start a trip or report a breakdown/emergency for it.
+          </p>
+          <div className="flex gap-2 pt-2">
+            <button type="button" onClick={onClose} className="btn-secondary flex-1">Cancel</button>
+            <button type="submit" disabled={saving} className="btn-primary flex-1">
+              {saving ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" /> : <UserCog size={15} />}
+              {saving ? 'Saving...' : 'Save Assignment'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 const ManageBuses = () => {
-  const [buses, setBuses] = useState([]); const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState(''); const [modal, setModal] = useState(null);
-  const load = async () => { try { const r = await busAPI.getAll({limit:100}); setBuses(r.data.buses); } catch { toast.error('Failed to load buses'); } finally { setLoading(false); } };
+  const [buses, setBuses] = useState([]);
+  const [drivers, setDrivers] = useState([]);
+  const [routes, setRoutes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [modal, setModal] = useState(null);       // BusModal: 'new' | bus | null
+  const [assignModal, setAssignModal] = useState(null); // AssignModal: bus | null
+
+  const load = async () => {
+    try {
+      const [busRes, driverRes, routeRes] = await Promise.all([
+        busAPI.getAll({ limit: 100 }),
+        adminAPI.getAllDrivers(),
+        routeAPI.getAll(),
+      ]);
+      setBuses(busRes.data.buses);
+      setDrivers(driverRes.data.drivers);
+      setRoutes(routeRes.data.routes);
+    } catch { toast.error('Failed to load buses'); }
+    finally { setLoading(false); }
+  };
   useEffect(()=>{ load(); },[]);
+
   const handleDelete = async (id) => {
     if (!window.confirm('Delete this bus?')) return;
     try { await busAPI.delete(id); toast.success('Bus deleted'); load(); } catch(e){ toast.error(e.response?.data?.message||'Cannot delete'); }
@@ -62,6 +172,15 @@ const ManageBuses = () => {
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 space-y-4 animate-fade-in">
       {modal && <BusModal bus={modal==='new'?null:modal} onClose={()=>setModal(null)} onSaved={()=>{setModal(null);load();}} />}
+      {assignModal && (
+        <AssignModal
+          bus={assignModal}
+          drivers={drivers}
+          routes={routes}
+          onClose={() => setAssignModal(null)}
+          onSaved={() => { setAssignModal(null); load(); }}
+        />
+      )}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2"><Bus size={22} className="text-brand-blue"/>Manage Buses</h1>
         <button onClick={()=>setModal('new')} className="btn-primary"><Plus size={16}/>Add Bus</button>
@@ -70,7 +189,7 @@ const ManageBuses = () => {
       <div className="card overflow-x-auto">
         <table className="w-full text-sm">
           <thead><tr className="text-left text-xs text-gray-500 border-b border-gray-100 dark:border-gray-700">
-            {['Bus No','Vehicle No','Type','Capacity','Route','Status','Actions'].map(h=><th key={h} className="pb-3 font-semibold pr-4">{h}</th>)}
+            {['Bus No','Vehicle No','Type','Capacity','Driver','Route','Status','Actions'].map(h=><th key={h} className="pb-3 font-semibold pr-4">{h}</th>)}
           </tr></thead>
           <tbody className="divide-y divide-gray-50 dark:divide-gray-700/50">
             {filtered.map(bus=>(
@@ -79,11 +198,15 @@ const ManageBuses = () => {
                 <td className="py-3 text-gray-600 dark:text-gray-400 pr-4">{bus.vehicleNumber}</td>
                 <td className="py-3 capitalize text-gray-600 dark:text-gray-400 pr-4">{bus.busType}</td>
                 <td className="py-3 text-gray-600 dark:text-gray-400 pr-4">{bus.capacity}</td>
+                <td className="py-3 text-gray-600 dark:text-gray-400 pr-4">
+                  {bus.assignedDriver?.name || <span className="text-amber-500 text-xs">Unassigned</span>}
+                </td>
                 <td className="py-3 text-gray-600 dark:text-gray-400 pr-4">{bus.assignedRoute?.routeNumber||'–'}</td>
                 <td className="py-3 pr-4"><span className={`px-2 py-0.5 rounded-full text-xs font-semibold capitalize ${bus.isActive?'bg-green-100 text-green-700':'bg-gray-100 text-gray-600'}`}>{bus.status}</span></td>
                 <td className="py-3"><div className="flex gap-2">
-                  <button onClick={()=>setModal(bus)} className="p-1.5 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg"><Pencil size={14}/></button>
-                  <button onClick={()=>handleDelete(bus._id)} className="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"><Trash2 size={14}/></button>
+                  <button onClick={()=>setAssignModal(bus)} className="p-1.5 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg" title="Assign driver/route"><UserCog size={14}/></button>
+                  <button onClick={()=>setModal(bus)} className="p-1.5 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg" title="Edit bus"><Pencil size={14}/></button>
+                  <button onClick={()=>handleDelete(bus._id)} className="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg" title="Delete bus"><Trash2 size={14}/></button>
                 </div></td>
               </tr>
             ))}

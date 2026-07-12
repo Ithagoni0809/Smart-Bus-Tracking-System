@@ -120,13 +120,25 @@ const DriverDashboard = () => {
   };
 
   const handleEmergency = () => {
-    socket?.emit('emergency-alert', { message: 'Driver triggered emergency alert!' });
-    toast.error('Emergency alert sent!', { duration: 6000 });
+    if (!socket) return;
+    socket.emit('emergency-alert', { message: 'Driver triggered emergency alert!' }, (res) => {
+      if (res?.success) {
+        toast.error('Emergency alert sent!', { duration: 6000 });
+      } else {
+        toast.error(res?.message || 'Failed to send emergency alert.', { duration: 6000 });
+      }
+    });
   };
 
   const handleBreakdown = () => {
-    socket?.emit('breakdown-report', { description: 'Breakdown reported by driver.' });
-    toast.error('Breakdown reported to admin!', { duration: 5000 });
+    if (!socket) return;
+    socket.emit('breakdown-report', { description: 'Breakdown reported by driver.' }, (res) => {
+      if (res?.success) {
+        toast.error('Breakdown reported to admin!', { duration: 5000 });
+      } else {
+        toast.error(res?.message || 'Failed to report breakdown.', { duration: 5000 });
+      }
+    });
   };
 
   useEffect(() => () => { stopGPS(); }, []);
@@ -221,12 +233,15 @@ const DriverDashboard = () => {
         <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
           <AlertTriangle size={14} className="text-red-500" /> Emergency Actions
         </h2>
-        <button onClick={handleEmergency}
-          className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-sm transition-colors">
+        {!isOnTrip && (
+          <p className="text-xs text-gray-500">Start a trip to enable emergency reporting.</p>
+        )}
+        <button onClick={handleEmergency} disabled={!isOnTrip}
+          className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-red-600 text-white font-bold text-sm transition-colors">
           <AlertTriangle size={18} fill="white" /> SEND EMERGENCY ALERT
         </button>
-        <button onClick={handleBreakdown}
-          className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-orange-100 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 font-semibold text-sm hover:bg-orange-200 transition-colors">
+        <button onClick={handleBreakdown} disabled={!isOnTrip}
+          className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-orange-100 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 font-semibold text-sm hover:bg-orange-200 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-orange-100 transition-colors">
           <Wrench size={16} /> Report Breakdown
         </button>
       </div>

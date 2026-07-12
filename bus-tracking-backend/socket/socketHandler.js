@@ -367,9 +367,18 @@ const initializeSocket = (io) => {
      * PAYLOAD: { message (optional) }
      * BROADCASTS TO: admin room + the bus's route room (passengers see it too)
      */
-    socket.on('emergency-alert', async ({ message }) => {
+    socket.on('emergency-alert', async ({ message }, ack) => {
       const ctx = socket.driverContext;
-      if (!ctx) return;
+      if (!ctx) {
+        // No active trip context — usually means this driver isn't
+        // currently on a trip (or was never assigned a bus, so could
+        // never start one). Previously this just silently did nothing
+        // while the driver's UI showed a fake success toast regardless.
+        if (typeof ack === 'function') {
+          ack({ success: false, message: 'You must be on an active trip to send an emergency alert.' });
+        }
+        return;
+      }
 
       try {
         const driver = await Driver.findById(ctx.driverId).select('name phone');
@@ -390,9 +399,11 @@ const initializeSocket = (io) => {
 
         io.to('admin').to(`route:${ctx.routeId}`).emit('emergency-alert', payload);
         logger.warn(`🚨 EMERGENCY ALERT: bus ${bus?.busNumber}, driver ${driver?.name}`);
+        if (typeof ack === 'function') ack({ success: true });
 
       } catch (err) {
         logger.error(`emergency-alert error: ${err.message}`);
+        if (typeof ack === 'function') ack({ success: false, message: 'Failed to send emergency alert. Please try again.' });
       }
     });
 
@@ -400,9 +411,14 @@ const initializeSocket = (io) => {
     // ═══════════════════════════════════════════════════════════════════
     // DRIVER: BREAKDOWN REPORT
     // ═══════════════════════════════════════════════════════════════════
-    socket.on('breakdown-report', async ({ description }) => {
+    socket.on('breakdown-report', async ({ description }, ack) => {
       const ctx = socket.driverContext;
-      if (!ctx) return;
+      if (!ctx) {
+        if (typeof ack === 'function') {
+          ack({ success: false, message: 'You must be on an active trip to report a breakdown.' });
+        }
+        return;
+      }
 
       try {
         await Trip.findByIdAndUpdate(ctx.tripId, { hadBreakdown: true });
@@ -416,8 +432,10 @@ const initializeSocket = (io) => {
         });
 
         logger.warn(`🔧 Breakdown reported: bus ${ctx.busId}`);
+        if (typeof ack === 'function') ack({ success: true });
       } catch (err) {
         logger.error(`breakdown-report error: ${err.message}`);
+        if (typeof ack === 'function') ack({ success: false, message: 'Failed to report breakdown. Please try again.' });
       }
     });
 

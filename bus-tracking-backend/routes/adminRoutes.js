@@ -20,4 +20,14 @@ router.patch('/drivers/:id/deactivate', ac.deactivateDriver);
 router.get('/users',               ac.getAllUsers);
 router.patch('/users/:id/toggle',  ac.toggleUserStatus);
 
+// ── Admin management (superadmin only) ──────────────────────────────────
+// Stacking restrictTo('superadmin') on top of the router-wide
+// restrictTo('admin','superadmin') further narrows access: a plain
+// 'admin' passes the first check but is rejected by the second.
+router.get('/admins',                     restrictTo('superadmin'), ac.getAllAdmins);
+router.post('/admins',                    restrictTo('superadmin'), ac.createAdmin);
+router.patch('/admins/:id/toggle',        restrictTo('superadmin'), ac.toggleAdminStatus);
+router.patch('/admins/:id/role',          restrictTo('superadmin'), ac.updateAdminRole);
+router.patch('/admins/:id/permissions',   restrictTo('superadmin'), ac.updateAdminPermissions);
+
 module.exports = router;

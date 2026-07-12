@@ -81,13 +81,25 @@ exports.updateDriver = catchAsync(async (req, res, next) => {
 });
 
 // Deactivate driver
-exports.deactivateDriver = catchAsync(async (req, res, next) => {
+exports.toggleDriverStatus = catchAsync(async (req, res, next) => {
   const driver = await Driver.findById(req.params.id);
   if (!driver) return next(new AppError('Driver not found.', 404));
-  if (driver.isOnTrip) return next(new AppError('Cannot deactivate a driver currently on a trip.', 400));
-  driver.isActive = false;
-  await driver.save();
-  res.status(200).json({ success: true, message: 'Driver deactivated.' });
+
+  // Only block the DEACTIVATE direction while on a trip — reactivating
+  // is always safe regardless of trip state, since a deactivated driver
+  // can't be on a trip in the first place (starting a trip requires
+  // isActive: true).
+  if (driver.isActive && driver.isOnTrip) {
+    return next(new AppError('Cannot deactivate a driver currently on a trip.', 400));
+  }
+
+  driver.isActive = !driver.isActive;
+  await driver.save({ validateBeforeSave: false });
+  res.status(200).json({
+    success: true,
+    message: `Driver ${driver.isActive ? 'activated' : 'deactivated'}.`,
+    isActive: driver.isActive,
+  });
 });
 
 // ── USER MANAGEMENT ───────────────────────────────────────────────────────

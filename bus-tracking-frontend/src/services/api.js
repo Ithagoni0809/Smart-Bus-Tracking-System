@@ -204,7 +204,7 @@ export const adminAPI = {
   createDriver:     (data)   => api.post('/admin/drivers', data),
   getDriver:        (id)     => api.get(`/admin/drivers/${id}`),
   updateDriver:     (id, data) => api.put(`/admin/drivers/${id}`, data),
-  deactivateDriver: (id)     => api.patch(`/admin/drivers/${id}/deactivate`),
+  toggleDriverStatus: (id)   => api.patch(`/admin/drivers/${id}/deactivate`),
   getAllUsers:       (params) => api.get('/admin/users', { params }),
   toggleUserStatus: (id)     => api.patch(`/admin/users/${id}/toggle`),
   // Admin management (superadmin only)

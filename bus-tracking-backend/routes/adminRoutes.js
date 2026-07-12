@@ -14,7 +14,7 @@ router.get('/drivers',         ac.getAllDrivers);
 router.post('/drivers',        ac.createDriver);
 router.get('/drivers/:id',     ac.getDriver);
 router.put('/drivers/:id',     ac.updateDriver);
-router.patch('/drivers/:id/deactivate', ac.deactivateDriver);
+router.patch('/drivers/:id/deactivate', ac.toggleDriverStatus);
 
 // User management
 router.get('/users',               ac.getAllUsers);

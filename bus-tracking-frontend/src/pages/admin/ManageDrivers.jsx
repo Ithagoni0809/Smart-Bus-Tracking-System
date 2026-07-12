@@ -47,9 +47,10 @@ const ManageDrivers = () => {
   const [search, setSearch] = useState(''); const [showModal, setShowModal] = useState(false);
   const load = async () => { try { const r = await adminAPI.getAllDrivers(); setDrivers(r.data.drivers); } catch { toast.error('Failed to load drivers'); } finally { setLoading(false); } };
   useEffect(()=>{ load(); },[]);
-  const handleDeactivate = async (id) => {
-    if (!window.confirm('Deactivate this driver?')) return;
-    try { await adminAPI.deactivateDriver(id); toast.success('Driver deactivated'); load(); } catch(e){ toast.error(e.response?.data?.message||'Failed'); }
+  const handleToggle = async (id, currentStatus, name) => {
+    const verb = currentStatus ? 'Deactivate' : 'Activate';
+    if (!window.confirm(`${verb} ${name}?`)) return;
+    try { await adminAPI.toggleDriverStatus(id); toast.success(`Driver ${currentStatus ? 'deactivated' : 'activated'}`); load(); } catch(e){ toast.error(e.response?.data?.message||'Failed'); }
   };
   const filtered = drivers.filter(d => d.name?.toLowerCase().includes(search.toLowerCase()) || d.employeeId?.toLowerCase().includes(search.toLowerCase()));
   if (loading) return <div className="flex justify-center items-center min-h-[60vh]"><Spinner size="lg"/></div>;
@@ -81,7 +82,14 @@ const ManageDrivers = () => {
                   </span>
                 </td>
                 <td className="py-3">
-                  {d.isActive && <button onClick={()=>handleDeactivate(d._id)} className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg" title="Deactivate"><Ban size={14}/></button>}
+                  <button
+                    onClick={()=>handleToggle(d._id, d.isActive, d.name)}
+                    disabled={d.isOnTrip}
+                    title={d.isActive ? 'Deactivate' : 'Activate'}
+                    className={`p-1.5 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed ${d.isActive ? 'text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20' : 'text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20'}`}
+                  >
+                    {d.isActive ? <Ban size={14}/> : <CheckCircle size={14}/>}
+                  </button>
                 </td>
               </tr>
             ))}

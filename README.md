@@ -230,4 +230,3 @@ MIT License — Free to use for academic and personal projects.
 
 ---
 
-*Built with ❤️ for B.Tech Final Year Project — Smart Public Bus Tracking System*
